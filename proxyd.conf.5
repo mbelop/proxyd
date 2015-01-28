@@ -1,0 +1,252 @@
+.\"
+.\" Copyright (c) 2011 Mike Belopuhov
+.\" Copyright (c) 2006, 2007 Reyk Floeter <reyk@openbsd.org>
+.\" Copyright (c) 2006, 2007 Pierre-Yves Ritschard <pyr@openbsd.org>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate: September 28 2011 $
+.Dt PROXYD.CONF 5
+.Os
+.Sh NAME
+.Nm proxyd.conf
+.Nd proxyd daemon configuration file
+.Sh DESCRIPTION
+.Nm
+is the configuration file for the firewall helper daemon,
+.Xr proxyd 8 .
+.Sh SECTIONS
+.Nm
+is divided into several main sections:
+.Bl -tag -width xxxx
+.It Sy Global Configuration
+Global settings for
+.Xr proxyd 8 .
+Do note that the config file allows global settings to be added after
+defining tables in the config file, but those tables will use the
+built-in defaults instead of the global settings below them.
+.It Sy Tables
+Table definitions describe a list of hosts,
+in a similar fashion to
+.Xr pf 4
+tables.
+They are currently used for address maps only.
+.It Sy Proxies
+Proxy definition enables and configures an appropriate protocol
+proxy.
+.El
+.Pp
+Within the sections,
+a host
+.Ar address
+can be specified by an IPv4 address or an IPv6 address.
+.Ar port
+can be specified by number.
+.Pp
+The current line can be extended over multiple lines using a backslash
+.Pq Sq \e .
+Comments can be put anywhere in the file using a hash mark
+.Pq Sq # ,
+and extend to the end of the current line.
+Care should be taken when commenting out multi-line text:
+the comment is effective until the end of the entire block.
+.Pp
+Additional configuration files can be included with the
+.Ic include
+keyword, for example:
+.Bd -literal -offset indent
+include "/etc/proxyd.conf.local"
+.Ed
+.Sh GLOBAL CONFIGURATION
+Here are the settings that can be set globally:
+.Bl -tag -width Ds
+.It Ic set pf logging Ar on Ns | Ns Ar off
+Control the logging flag on the inserted
+.Xr pf 4
+rules.
+.It Ic set pf queue Ar name
+Assign packets to the queue
+.Ar name .
+.It Ic set pf tag Ar name
+Tag packets with a
+.Ar name .
+.It Ic set rdomain Ar number
+Set the proxyd process routing domain to
+.Ar number .
+.It Ic set timeout connect Ar number
+Set the server connect timeout to
+.Ar number .
+The default is 10 seconds.
+.It Ic set timeout idle Ar number
+Set the inactivity timeout for accepted sessions.
+Connections will be dropped automatically if no traffic appears within
+.Ar number
+of seconds.
+The default is 600 seconds
+.Pq 10 minutes .
+.It Ic set transparent Ar yes Ns | Ns Ar no
+Enable or disable transparency.
+Transparent is the default mode and should be turned off only when the
+setup involves NAT.
+.El
+.Sh TABLES
+Tables are used to group a set of hosts as address translation maps.
+Each table must contain at least one host
+.Ar address ;
+multiple hosts are separated by newline, comma, or whitespace.
+Host map entries may be defined with an arrow.
+.Pp
+For example:
+.Bd -literal -offset indent
+table \*(Lttns-map\*(Gt { 192.168.1.1 -> 10.0.0.1, 192.168.1.2 -> 10.0.0.1 }
+
+proxy "tns" {
+	type oracle-tns
+	use map \*(Lttns-map\*(Gt
+}
+.Ed
+.Sh PROXIES
+Proxies will handle diverted connections from clients to servers
+on behalf of the former in order to establish correct
+.Xr pf 4
+rules needed to pass dynamic connections between the two.
+.Pp
+The main purpose of a relay is to help firewall to deal with
+protocols that require multiple connections for operation.
+.Pp
+The
+.Ic proxy
+configuration directives are described below:
+.Bl -tag -width Ds
+.It Ic type Ar proxy-type
+Specify type of the proxy.
+Valid types are
+.Ar oracle-tns ,
+.Ar ms-rpc
+or
+.Ar sun-rpc .
+See the
+.Sx PROTOCOLS
+section below for the detailed description of supported application level
+protocols.
+.It Xo
+.Ic listen on Ar address
+.Op Ar proto
+.Op Ic port Ar port
+.Xc
+Specify the address, protocol and port for the proxy to listen for
+diverted connections.
+Protocol can be either
+.Ar tcp
+or
+.Ar udp .
+If the
+.Ic port
+or the
+.Ar proto
+option is not specified, the default port number or protocol will be used.
+.It Xo
+.Ic use map
+.Aq Ar table
+.Xc
+Specify the destination mapping table to use.
+.El
+.Pp
+It is also possible to override the global configuration on the per
+proxy basis.
+See the
+.Sx GLOBAL CONFIGURATION
+section for more detailed description.
+.Bl -tag -width Ds -compact
+.Pp
+.It Ic set pf logging Ar on Ns | Ns Ar off
+Control the logging flag on the inserted
+.Xr pf 4
+rules.
+.Pp
+.It Ic set pf queue Ar name
+.It Ic set no pf queue
+Assign packets to the queue
+.Ar name
+or disable queuing for this proxy.
+.Pp
+.It Ic set pf tag Ar name
+.It Ic set no pf tag
+Tag packets with a
+.Ar name
+or disable tagging for this proxy.
+.Pp
+.It Ic set timeout connect Ar number
+Set the server connect timeout to
+.Ar number
+seconds.
+.Pp
+.It Ic set timeout idle Ar number
+Set the connection inactivity timeout to
+.Ar number
+seconds.
+.Pp
+.It Ic set transparent Ar yes Ns | Ns Ar no
+Enable or disable transparency.
+.El
+.Sh PROTOCOLS
+.Pp
+Currently supported protocols are:
+.Bl -tag -width Ds
+.It Ic oracle-tns
+Oracle TNS is a TCP-only protocol with a port number 1521.
+Transparency and IPv6 operation are supported.
+Default proxy port number is 8521.
+.It Ic sun-rpc
+Sun RPC protocol supports Portmap requests over TCP
+.Pq both IPv4 and IPv6
+and UDP
+.Pq for IPv4 only
+port 111.
+Default proxy port number is 8111.
+.It Ic ms-rpc
+Microsoft RPC Endpoint Mapper is a TCP-only protocol supported for
+IPv4 addresses only
+.Pq port number 135 .
+Default proxy port number is 8135.
+.El
+.Sh EXAMPLES
+This configuration file would create an Oracle TNS proxy and a Sun RPC
+proxy in the second routing domain with some different parameters.
+.Bd -literal -offset indent
+set pf logging on
+set pf tag PROXIED
+set timeout idle 10
+set rdomain 2
+
+table \*(Lttns-map\*(Gt { 192.168.0.1 -> 10.0.0.1, 192.168.0.2 -> 10.0.0.1 }
+
+proxy "tns" {
+	type orcale-tns
+	set pf no tag
+	use map <tns-map>
+}
+
+proxy "rpc" {
+	type sun-rpc
+	set timeout idle 20
+}
+.Ed
+.Sh SEE ALSO
+.Xr proxyd 8
+.Sh AUTHORS
+.An -nosplit
+The
+.Xr proxyd 8
+program was written by
+.An Mike Belopuhov .

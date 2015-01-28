@@ -1,0 +1,93 @@
+.\"
+.\" Copyright (c) 2011 Mike Belopuhov
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate: September 28 2011 $
+.Dt PROXYD 8
+.Os
+.Sh NAME
+.Nm proxyd
+.Nd a firewall helper daemon
+.Sh SYNOPSIS
+.Nm
+.Bk -words
+.Op Fl dnv
+.Op Fl f Ar file
+.Ek
+.Sh DESCRIPTION
+.Nm
+is a proxy for several protocols including Oracle TNS, Sun RPC Portmap
+and Microsoft RPC Endpoint Mapper.
+Control connections should be redirected into the proxy using the
+.Xr pf 4
+.Ar divert-to
+command, after which the proxy connects to the server on behalf of
+the client.
+.Pp
+The proxy allows further connections to pass, rewriting and redirecting
+them so that the right addresses are used.
+The proxy uses the
+.Xr pf 4
+.Ar anchor
+facility for this.
+.Nm
+chroots to "/var/empty" and changes to user "proxy" to drop privileges.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl d
+Do not daemonize.
+The process will stay in the foreground, logging to standard error.
+.It Fl f Ar file
+Specify an alternative configuration file.
+The default is
+.Pa /etc/relayd.conf .
+.It Fl n
+Check if configuration file has valid syntax.
+.It Fl v
+Produce more verbose output.
+.El
+.Sh CONFIGURATION
+To make use of the
+.Nm ,
+.Xr pf 4
+is required to be configured to divert appropriate traffic to the proxy.
+Depending on the type of proxy
+.Xr pf.conf 5
+needs
+.Ar divert-to
+and/or
+.Ar divert-reply
+rules:
+.Bd -literal -offset 2n
+anchor "proxyd/*"
+pass in quick inet proto { tcp udp } to port 111 rtable 0 \e
+        divert-to 127.0.0.1 port 8111
+pass out quick inet proto { tcp udp } to port 111 group proxy \e
+        keep state (no-sync) divert-reply
+.Ed
+.Sh FILES
+.Bl -tag -width "/etc/proxyd.conf" -compact
+.It /etc/proxyd.conf
+Default configuration file.
+.Sh SEE ALSO
+.Xr pf 4 ,
+.Xr pf.conf 5 ,
+.Xr proxyd.conf 5
+.Sh AUTHORS
+.An -nosplit
+The
+.Nm
+program was written by
+.An Mike Belopuhov .
